@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMVIS - AMLO Vision Intelligent System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Leaflet.js CSS & JS CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #090d16; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
+        
+        @keyframes fadeInSlide {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-page { animation: fadeInSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .bounding-box { transition: all 0.2s ease-in-out; }
+        .interactive-card { transition: all 0.2s ease; }
+        .interactive-card:hover { transform: translateY(-2px); border-color: rgba(16, 185, 129, 0.4); }
+        
+        /* Dynamic SVG Flow Line Animation */
+        @keyframes flowDash {
+            to { stroke-dashoffset: -20; }
+        }
+        .flow-line {
+            stroke-dasharray: 6, 6;
+            animation: flowDash 1s linear infinite;
+        }
+
+        /* Draggable Node Styling */
+        .node-element { cursor: grab; user-select: none; transition: box-shadow 0.2s ease; }
+        .node-element:active { cursor: grabbing; box-shadow: 0 0 25px rgba(16, 185, 129, 0.7); }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-200 overflow-x-hidden custom-scrollbar">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-notif" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-900 border border-emerald-500/50 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-emerald-950 border border-emerald-500 flex items-center justify-center text-emerald-400">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <div>
+                <div id="toast-title" class="font-bold text-xs text-emerald-400">ระบบ AMVIS</div>
+                <div id="toast-msg" class="text-[11px] text-slate-300">ทำรายการสำเร็จ</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header / Navbar -->
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between z-30 sticky top-0 shadow-lg">
+        <div class="flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-xl font-bold shadow-inner">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base md:text-lg text-emerald-400 tracking-wide flex items-center gap-2">
+                    AMVIS <span class="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md font-medium">สำนักงาน ปปง.</span>
+                </h1>
+                <p class="text-[11px] text-slate-400">AMLO Vision Intelligent System - ระบบสกัดและวิเคราะห์ข้อมูลคดีอัจฉริยะ</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-4 text-xs">
+            <div class="hidden md:flex items-center space-x-2 bg-slate-950/80 px-3 py-1.5 rounded-full border border-slate-800">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="text-slate-300">สถานะระบบ AI: <strong class="text-emerald-400">พร้อมใช้งาน</strong></span>
+            </div>
+
+            <!-- Profile Widget ( Anonymized User ) -->
+            <div class="flex items-center space-x-3 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
+                <div class="w-8 h-8 rounded-full bg-slate-900 border border-amber-500/70 flex items-center justify-center text-amber-400 font-bold shadow">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <div class="text-left hidden sm:block">
+                    <div class="font-bold text-slate-100 text-xs" id="header-user-name">เจ้าหน้าที่ ปปง. (นิรนาม)</div>
+                    <div class="text-[10px] text-amber-400 font-medium" id="header-user-role">นักวิชาการคอมพิวเตอร์ / ศทส.</div>
+                </div>
+                <select id="role-selector" onchange="changeUserRole(this.value)" class="bg-slate-900 border border-slate-700 text-slate-200 text-[11px] rounded-lg px-2 py-1 outline-none cursor-pointer hover:border-emerald-500">
+                    <option value="officer">บทบาท: เจ้าหน้าที่ปฏิบัติการ / คดี</option>
+                    <option value="legal_dir">บทบาท: ผู้อนุมัติ / ผอ.กองกฎหมาย</option>
+                    <option value="executive">บทบาท: ผู้บริหารระดับสูง</option>
+                    <option value="admin">บทบาท: เจ้าหน้าที่ผู้ดูแลระบบ (Admin)</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar Navigation -->
+        <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4 text-xs shrink-0">
+            <div class="space-y-4">
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2">เมนูหลักระบบ</div>
+                <nav class="space-y-1.5">
+                    <button onclick="navigateTo('scan')" id="nav-scan" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-medium text-left">
+                        <i class="fa-solid fa-microscope w-4 text-center"></i>
+                        <span>สแกนเอกสาร AI OCR</span>
+                    </button>
+                    <button onclick="navigateTo('cases')" id="nav-cases" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition text-left">
+                        <i class="fa-solid fa-network-wired w-4 text-center"></i>
+                        <span>สารบบคดี & Workflow</span>
+                    </button>
+                    <button onclick="navigateTo('assets')" id="nav-assets" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition text-left">
+                        <i class="fa-solid fa-vault w-4 text-center"></i>
+                        <span>ติดตามทรัพย์สิน (บส.)</span>
+                    </button>
+                    <button onclick="navigateTo('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition text-left">
+                        <i class="fa-solid fa-chart-pie w-4 text-center"></i>
+                        <span>แดชบอร์ดผู้บริหาร</span>
+                    </button>
+                    <button onclick="navigateTo('admin')" id="nav-admin" class="nav-item hidden w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-amber-400 bg-amber-950/40 border border-amber-800/60 font-medium text-left">
+                        <i class="fa-solid fa-server w-4 text-center"></i>
+                        <span>ตั้งค่า & สถาปัตยกรรมระบบ</span>
+                    </button>
+                </nav>
+            </div>
+            
+            <div id="sidebar-footer-info" class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1 text-[11px] text-slate-400">
+                <div class="font-semibold text-slate-300">สำนักงาน ปปง.</div>
+                <div class="text-[10px] text-slate-500">ระบบสกัดและวิเคราะห์ข้อมูลคดี v1.0.6</div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 bg-slate-950 overflow-y-auto custom-scrollbar p-6">
+
+            <!-- PAGE 1: สแกนเอกสาร AI OCR & Dual-Sync -->
+            <div id="page-scan" class="page-content space-y-6">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-microscope text-emerald-400"></i> สแกนเอกสารคดี และการตรวจทาน Dual-Sync
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">นำเข้าเอกสารคดี ทำ Vision Cleansing, ปกปิดข้อมูลส่วนบุคคล (PII Masking) และตรวจทานข้อมูลสอดคล้องกันสองทาง</p>
+                </div>
+
+                <!-- STEP 1: หน้าสแกน / นำเข้าเอกสาร -->
+                <div id="scan-step-1" class="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center space-y-4 interactive-card">
+                    <div class="w-16 h-16 rounded-full bg-emerald-950 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-2xl mx-auto shadow-inner">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-200">นำเข้าเอกสารสำนวนคดี (PDF / JPG / PNG)</h3>
+                        <p class="text-xs text-slate-400 mt-1">ลากและวางไฟล์เอกสารคำพิพากษา, คำสั่ง ย., หรือบันทึกคำให้การที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
+                    </div>
+                    <div class="flex items-center justify-center gap-3 pt-2">
+                        <button onclick="startStepByStepCleansing()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 transition hover:scale-105">
+                            <i class="fa-solid fa-play"></i> เริ่มกระบวนการสแกนและประมวลผล AI
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 2: แสดง Progress ทีละขั้นตอน & PDF Preview สรุปผล -->
+                <div id="scan-step-2" class="hidden bg-slate-900 border border-emerald-800/80 rounded-xl p-6 space-y-5 shadow-2xl animate-page">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <div>
+                            <h3 class="font-bold text-sm text-emerald-400 flex items-center gap-2">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> กระบวนการปรับแต่งคุณภาพภาพ (Vision Cleansing 6 ขั้นตอน)
+                            </h3>
+                            <p class="text-xs text-slate-400 mt-0.5">ระบบกำลังประมวลผลเพิ่มประสิทธิภาพไฟล์สแกนก่อนส่งเข้า AI OCR Engine</p>
+                        </div>
+                        <span id="cleansing-status-badge" class="px-2.5 py-1 bg-amber-950 text-amber-300 border border-amber-800 rounded-full text-[10px] font-bold">กำลังดำเนินการ...</span>
+                    </div>
+
+                    <!-- Step Progress List -->
+                    <div class="space-y-2 text-xs">
+                        <div id="c-step-1" class="p-2.5 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-between text-slate-400">
+                            <span>1. Object Detection & Boundary Extraction</span>
+                            <i class="fa-solid fa-circle-notch animate-spin text-amber-400"></i>
+                        </div>
+                        <div id="c-step-2" class="p-2.5 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-between text-slate-500 opacity-50">
+                            <span>2. Auto-Deskew & Perspective Rotation (ปรับหมุนเอียง 4.2°)</span>
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div id="c-step-3" class="p-2.5 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-between text-slate-500 opacity-50">
+                            <span>3. Adaptive Denoising & Spot Removal (ลบคราบเปื้อน/รอยพับ)</span>
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div id="c-step-4" class="p-2.5 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-between text-slate-500 opacity-50">
+                            <span>4. Dynamic Contrast & Shadow Equalization</span>
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div id="c-step-5" class="p-2.5 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-between text-slate-500 opacity-50">
+                            <span>5. Automated PII Masking & Privacy Shield (เปิดการซ่อนข้อมูลความลับ)</span>
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div id="c-step-6" class="p-2.5 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-between text-slate-500 opacity-50">
+                            <span>6. Layer Separation (แยกตราครุฑ/ลายน้ำออกจากข้อความ)</span>
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                    </div>
+
+                    <!-- PDF Preview & Identified Fixed Locations -->
+                    <div id="cleansing-preview-box" class="hidden pt-2 border-t border-slate-800 space-y-3">
+                        <div class="text-xs font-semibold text-slate-200 flex items-center justify-between">
+                            <span><i class="fa-solid fa-file-pdf text-red-400 mr-1.5"></i> พรีวิวเอกสาร PDF และจุดแก้ไขปรับแต่ง (Identified Highlights)</span>
+                            <span class="text-[10px] text-emerald-400">ปรับแต่งตำแหน่งข้อความสำเร็จ 4 จุด</span>
+                        </div>
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs font-serif leading-relaxed text-slate-800 relative bg-slate-100 h-44 overflow-y-auto">
+                            <div class="text-center font-bold mb-2">คำสั่งสำนักงาน ปปง. ที่ ย. 842/2567</div>
+                            <p class="mb-1">เรื่อง ยึดและอายัดทรัพย์สินที่เกี่ยวกับการกระทำความผิดไว้ชั่วคราว</p>
+                            <p class="mb-2">อาศัยอำนาจตาม พ.ร.บ. ป้องกันและปราบปรามการฟอกเงิน ดำเนินการยึดทรัพย์ของ <span class="bg-amber-200 border border-amber-500 px-1 font-sans rounded">ผู้ต้องหานิรนาม A</span> เลขคดีดำ <span class="bg-emerald-200 border border-emerald-500 px-1 font-sans rounded">AML-2567-0089</span> ยอดเงินอายัด <span class="bg-emerald-200 border border-emerald-500 px-1 font-sans rounded">45,000,000 บาท</span></p>
+                        </div>
+                        <div class="flex justify-end">
+                            <button onclick="acknowledgeCleansingAndShowDualSync()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 transition hover:scale-105">
+                                <i class="fa-solid fa-circle-check"></i> รับทราบผลการทำ Cleansing และเข้าสู่การตรวจทาน
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 3: หน้าจอ Dual-Sync Workspace พร้อมฟังก์ชัน PII Masking Toggle -->
+                <div id="scan-step-3" class="hidden space-y-6 animate-page">
+                    <!-- Sensitivity & PII Masking Control Panel -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 text-xs">
+                        <div class="flex flex-wrap items-center gap-6">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-slate-400"><i class="fa-solid fa-sliders text-amber-400 mr-1"></i> Sensitivity Threshold:</span>
+                                <input type="range" id="sensitivity-slider" min="50" max="95" value="80" oninput="updateSensitivity(this.value)" class="w-28 accent-emerald-500 cursor-pointer">
+                                <span id="sensitivity-val" class="font-bold text-emerald-400">80%</span>
+                            </div>
+
+                            <!-- PII Masking Toggle Switch -->
+                            <div class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                                <i class="fa-solid fa-user-lock text-purple-400"></i>
+                                <span class="font-bold text-slate-200">ปกปิดข้อมูลคุ้มครอง (PII Masking):</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="pii-toggle-switch" onchange="togglePiiMasking(this.checked)" class="sr-only peer" checked>
+                                    <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-3 text-[11px]">
+                            <span id="pii-status-badge" class="px-3 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-800 font-bold">
+                                <i class="fa-solid fa-eye-slash mr-1"></i> คาดดำข้อมูล PII อัตโนมัติ (Active)
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Dual-Sync Layout Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <!-- Left: Document Preview with Bounding Boxes (รวม 45,000,000 บาท และ PII Masking) -->
+                        <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                            <div class="flex justify-between items-center border-b border-slate-800 pb-2 text-xs">
+                                <span class="font-semibold text-slate-300 flex items-center gap-2">
+                                    <i class="fa-solid fa-file-image text-amber-400"></i> ภาพเอกสารสแกนต้นฉบับ & Bounding Boxes
+                                </span>
+                                <span class="text-[10px] text-slate-500">คำสั่ง ย. 842/2567</span>
+                            </div>
+
+                            <div class="relative bg-slate-950 border border-slate-800 rounded-lg h-[480px] overflow-hidden p-6 text-slate-900 font-serif leading-relaxed text-xs">
+                                <div class="bg-slate-100 p-6 rounded shadow h-full overflow-y-auto relative custom-scrollbar">
+                                    <div class="text-center font-bold text-sm mb-3">คำสั่งสำนักงาน ปปง. ที่ ย. 842/2567</div>
+                                    <p class="mb-2">เรื่อง ยึดและอายัดทรัพย์สินที่เกี่ยวกับการกระทำความผิดไว้ชั่วคราว</p>
+                                    <p class="mb-4">อาศัยอำนาจตามมาตรา 48 แห่ง พ.ร.บ. ป้องกันและปราบปรามการฟอกเงิน เลขคดีดำที่ <span id="box-1" class="bounding-box bg-emerald-200 border-2 border-emerald-600 px-1 rounded font-sans">AML-2567-0089</span> ของผู้ต้องหา <span id="box-0" class="bounding-box bg-emerald-200 border-2 border-emerald-600 px-1 rounded font-sans">ผู้ต้องหานิรนาม A</span></p>
+                                    
+                                    <div class="my-3 p-3 border border-slate-300 bg-slate-50 rounded">
+                                        <div class="font-bold mb-1">รายการทรัพย์สินที่ถูกยึด/อายัด:</div>
+                                        <ol class="list-decimal pl-4 space-y-2">
+                                            <li>รถยนต์หรู ทะเบียน <span id="box-2" class="bounding-box bg-emerald-200 border-2 border-emerald-600 px-1 rounded font-sans">ขก 9999 กทม</span></li>
+                                            <!-- Field 3: Bank Account with PII Masking capability -->
+                                            <li>เงินฝากธนาคารกสิกรไทย เลขที่ <span id="box-3" class="bounding-box bg-slate-950 text-slate-950 border-2 border-slate-900 px-2 rounded font-sans font-bold select-none cursor-pointer" title="ข้อมูลถูกคาดดำด้วย PII Masking">███-█-█████-█</span> จำนวน <span id="box-val" class="bounding-box bg-emerald-200 border-2 border-emerald-600 px-1 font-bold font-sans rounded">45,000,000 บาท</span></li>
+                                            <!-- Field 4: Land Title with PII Masking capability -->
+                                            <li>ที่ดินตามโฉนด <span id="box-4" class="bounding-box bg-slate-950 text-slate-950 border-2 border-slate-900 px-2 rounded font-sans font-bold select-none cursor-pointer" title="ข้อมูลถูกคาดดำด้วย PII Masking">█████ อ.เมือง จ.เชียงใหม่</span></li>
+                                        </ol>
+                                    </div>
+
+                                    <!-- Dynamic Overlay Callout -->
+                                    <div id="inline-callout" class="hidden absolute top-40 left-8 bg-purple-900/95 text-purple-100 border border-purple-400 p-2.5 rounded-lg shadow-2xl font-sans text-[11px] z-30 animate-bounce">
+                                        <div class="flex items-center gap-1.5 font-bold border-b border-purple-700 pb-1 mb-1">
+                                            <i class="fa-solid fa-pen-to-square"></i> แก้ไขข้อมูลใหม่ (Dual-Synced)
+                                        </div>
+                                        <div>ค่าใหม่: <strong id="callout-new" class="text-amber-300">123-4-56789-0</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Structured Data Form & Unstructured Raw OCR Text -->
+                        <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between space-y-4">
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center border-b border-slate-800 pb-2 text-xs">
+                                    <span class="font-semibold text-slate-300 flex items-center gap-2">
+                                        <i class="fa-solid fa-table-cells text-emerald-400"></i> ตารางสกัดข้อมูลเชิงโครงสร้าง (Structured Data)
+                                    </span>
+                                </div>
+
+                                <div class="space-y-2 text-xs">
+                                    <div>
+                                        <label class="text-slate-400 text-[11px] block mb-1">เลขรหัสคดีดำ</label>
+                                        <input type="text" value="AML-2567-0089" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-slate-200 focus:border-emerald-500 outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="text-slate-400 text-[11px] block mb-1">ทะเบียนรถยนต์ (ฟิลด์ 2)</label>
+                                        <input type="text" id="input-2" value="ขก 9999 กทม" oninput="handleInlineEdit(2, this.value)" class="w-full bg-slate-950 border border-emerald-700/80 rounded-lg px-3 py-1.5 text-emerald-300 focus:border-emerald-500 outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="text-slate-400 text-[11px] block mb-1">เลขบัญชีธนาคาร (ฟิลด์ 3 - คุ้มครอง PII)</label>
+                                        <input type="text" id="input-3" value="123-4-56789-0" oninput="handleInlineEdit(3, this.value)" class="w-full bg-slate-950 border border-emerald-700/80 rounded-lg px-3 py-1.5 text-emerald-300 focus:border-emerald-500 outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="text-slate-400 text-[11px] block mb-1">มูลค่าเงินยึดอายัด</label>
+                                        <input type="text" id="input-val" value="45,000,000 บาท" class="w-full bg-slate-950 border border-emerald-700/80 rounded-lg px-3 py-1.5 text-emerald-300 font-bold focus:border-emerald-500 outline-none">
+                                    </div>
+                                </div>
+
+                                <!-- Unstructured Raw OCR Text Box (อยู่ด้านล่างตารางสกัดข้อมูล) -->
+                                <div class="pt-2 border-t border-slate-800 space-y-1.5">
+                                    <label class="text-amber-400 text-[11px] font-bold flex items-center gap-1.5">
+                                        <i class="fa-solid fa-file-lines"></i> ข้อความทั้งหมดที่สกัดได้จากเอกสาร (Unstructured Raw OCR Text):
+                                    </label>
+                                    <textarea readonly class="w-full h-24 bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] text-slate-300 font-mono leading-relaxed outline-none resize-none custom-scrollbar">คำสั่งสำนักงาน ปปง. ที่ ย. 842/2567 เรื่อง ยึดและอายัดทรัพย์สินที่เกี่ยวกับการกระทำความผิดไว้ชั่วคราว อาศัยอำนาจตามมาตรา 48 แห่ง พ.ร.บ. ป้องกันและปราบปรามการฟอกเงิน พ.ศ. 2542 เลขคดีดำที่ AML-2567-0089 ของ ผู้ต้องหานิรนาม A รายการทรัพย์สิน: 1. รถยนต์หรู ทะเบียน ขก 9999 กทม 2. เงินฝากธนาคารกสิกรไทย เลขที่ 123-4-56789-0 จำนวน 45,000,000 บาท 3. ที่ดินตามโฉนด 54321 อ.เมือง จ.เชียงใหม่</textarea>
+                                </div>
+                            </div>
+
+                            <button onclick="confirmAndSendScan()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl text-xs shadow-lg flex items-center justify-center gap-2 transition hover:scale-101">
+                                <i class="fa-solid fa-paper-plane"></i> ยืนยันข้อมูลและส่งต่อผู้อนุมัติ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE 2: สารบบคดี & Dynamic Flow Interactive Visual Workflow -->
+            <div id="page-cases" class="page-content space-y-6 hidden">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-network-wired text-emerald-400"></i> สารบบคดี และ Interactive Workflow Node Graph
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">สืบค้นคดีด้วย AI Search Engine และจัดเส้นทางกระบวนการไหลของคดีพร้อมเส้นเชื่อมโยงแบบลากวาง</p>
+                </div>
+
+                <!-- AI Search Box -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles text-emerald-400"></i> AI Search Engine (ค้นหาด้วยภาษาธรรมชาติ)
+                        </span>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <input type="text" id="ai-search-input" placeholder="พิมพ์คำถาม เช่น 'คดีที่ใกล้ครบกำหนดอุทธรณ์'..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:border-emerald-500 outline-none">
+                        <button onclick="executeAiCaseSearch()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-lg flex items-center gap-2 shrink-0">
+                            <i class="fa-solid fa-magnifying-glass"></i> ค้นหาคดี
+                        </button>
+                    </div>
+
+                    <!-- Preset Prompt Buttons -->
+                    <div class="flex flex-wrap gap-2 text-[11px] pt-1">
+                        <span class="text-slate-500 self-center">ตัวอย่างคำถาม:</span>
+                        <button onclick="triggerCaseSearch('คดีใกล้ครบกำหนดอุทธรณ์')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 px-2.5 py-1 rounded-lg border border-slate-700">1. คดีใกล้ครบกำหนดอุทธรณ์</button>
+                        <button onclick="triggerCaseSearch('คดีที่ยังไม่มีผู้รับผิดชอบ')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 px-2.5 py-1 rounded-lg border border-slate-700">2. คดีที่ยังไม่มีผู้รับผิดชอบ</button>
+                        <button onclick="triggerCaseSearch('สำนวนคดีฟอกเงินการพนันออนไลน์')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 px-2.5 py-1 rounded-lg border border-slate-700">3. สำนวนคดีฟอกเงินการพนันออนไลน์</button>
+                    </div>
+                </div>
+
+                <!-- AI Search Progress Loading Box -->
+                <div id="ai-search-loading" class="hidden bg-slate-900 border border-emerald-800/80 p-4 rounded-xl text-center space-y-2">
+                    <div class="text-emerald-400 text-xs font-bold flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-spinner animate-spin"></i> AI Graph Search Engine กำลังประมวลผลคำสั่ง...
+                    </div>
+                    <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div class="bg-emerald-500 h-full w-2/3 animate-pulse"></div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Case Search Results -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="text-xs font-semibold text-slate-300 flex items-center justify-between border-b border-slate-800 pb-2">
+                        <span>รายการคดีในระบบ (ผลลัพธ์ผันแปรตามคำถาม)</span>
+                        <span id="case-result-badge" class="text-emerald-400 font-bold text-[11px]">แสดง 2 คดี</span>
+                    </div>
+
+                    <div id="case-results-list" class="space-y-2 text-xs">
+                        <!-- Content inserted dynamically via JS -->
+                    </div>
+                </div>
+
+                <!-- Interactive Workflow Canvas with Dynamic Directional Flow Lines -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex flex-wrap justify-between items-center border-b border-slate-800 pb-2 text-xs gap-2">
+                        <span class="font-semibold text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-diagram-project text-emerald-400"></i> Interactive Visual Workflow Canvas (เส้นเชื่อมโยงทิศทาง Dynamic Flow)
+                        </span>
+                        
+                        <!-- Edge Creator & Management Toolbar -->
+                        <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800">
+                                <span class="text-[10px] text-slate-400">จาก:</span>
+                                <select id="link-from-select" class="bg-transparent text-slate-200 text-[11px] outline-none">
+                                    <option value="node-1">กม. (กองกฎหมาย)</option>
+                                    <option value="node-2">กองคดี 3</option>
+                                    <option value="node-3">บส. (กองบริหารทรัพย์)</option>
+                                </select>
+                                <span class="text-[10px] text-slate-400 ml-1">ไป:</span>
+                                <select id="link-to-select" class="bg-transparent text-slate-200 text-[11px] outline-none">
+                                    <option value="node-2">กองคดี 3</option>
+                                    <option value="node-3" selected>บส. (กองบริหารทรัพย์)</option>
+                                    <option value="node-1">กม. (กองกฎหมาย)</option>
+                                </select>
+                                <button onclick="addNewConnection()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-0.5 rounded text-[10px] font-bold ml-1">+ เชื่อมเส้นทาง</button>
+                            </div>
+                            <button onclick="clearAllConnections()" class="bg-slate-800 hover:bg-slate-700 text-amber-400 px-2.5 py-1 rounded text-[11px] border border-slate-700">รีเซ็ตเส้น</button>
+                        </div>
+                    </div>
+
+                    <div id="node-graph-canvas" class="relative bg-slate-950 border border-slate-800 rounded-xl h-[360px] overflow-hidden p-4">
+                        <div class="text-[10px] text-slate-500 absolute top-2 left-2 z-0">
+                            <i class="fa-solid fa-info-circle text-emerald-400 mr-1"></i> คลิกค้างลากโหนดเพื่อย้ายตำแหน่ง - เส้นเชื่อมโยงและหัวลูกศรทิศทางจะคำนวณตำแหน่งให้อัตโนมัติ
+                        </div>
+
+                        <!-- SVG Layer for Dynamic Directional Curved Lines -->
+                        <svg id="workflow-svg-layer" class="absolute inset-0 w-full h-full pointer-events-none z-0">
+                            <defs>
+                                <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                                    <polygon points="0 0, 8 4, 0 8" fill="#10b981" />
+                                </marker>
+                                <marker id="arrowhead-amber" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                                    <polygon points="0 0, 8 4, 0 8" fill="#f59e0b" />
+                                </marker>
+                            </defs>
+                        </svg>
+
+                        <!-- Draggable Nodes -->
+                        <div id="node-1" style="top: 80px; left: 40px;" class="node-element absolute bg-slate-900 border-2 border-emerald-500 text-slate-100 p-3 rounded-xl shadow-2xl z-10 w-44 text-center">
+                            <div class="font-bold text-xs text-emerald-400 flex items-center justify-between">
+                                <span>1. กองกฎหมาย (กม.)</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-1">ออกคำสั่ง ย. / e-Sign</div>
+                        </div>
+
+                        <div id="node-2" style="top: 50px; left: 280px;" class="node-element absolute bg-slate-900 border-2 border-emerald-500 text-slate-100 p-3 rounded-xl shadow-2xl z-10 w-44 text-center">
+                            <div class="font-bold text-xs text-emerald-400 flex items-center justify-between">
+                                <span id="node-2-title">2. กองคดี 3</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-1">เจ้าของสำนวนคดี</div>
+                        </div>
+
+                        <div id="node-3" style="top: 180px; left: 520px;" class="node-element absolute bg-slate-900 border-2 border-amber-500 text-slate-100 p-3 rounded-xl shadow-2xl z-10 w-48 text-center">
+                            <div class="font-bold text-xs text-amber-400 flex items-center justify-between">
+                                <span>3. กองบริหารทรัพย์ (บส.)</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-1">จัดการยึดอายัด/ขายทอดตลาด</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE 3: ติดตามทรัพย์สิน (บส.) - มี 15 รายการทรัพย์สิน -->
+            <div id="page-assets" class="page-content space-y-6 hidden">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-vault text-amber-400"></i> ติดตามทรัพย์สิน และทรัพย์ลอย (บส.)
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">ติดตามสถานะทรัพย์สินยึดอายัดชั่วคราว อุทธรณ์ 30 วัน และสืบค้นทรัพย์ด้วย AI (คลัง 15 รายการ)</p>
+                </div>
+
+                <!-- Asset Search Box -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-coins text-amber-400"></i> Asset AI Search Box (ค้นหารายการทรัพย์สิน)
+                        </span>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <input type="text" id="asset-search-input" placeholder="พิมพ์ชื่อทรัพย์สิน เช่น 'พระเครื่องเลี่ยมทอง' หรือ 'รถยนต์'..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:border-amber-500 outline-none">
+                        <button onclick="executeAssetSearch()" class="bg-amber-600 hover:bg-amber-500 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-lg flex items-center gap-2 shrink-0">
+                            <i class="fa-solid fa-magnifying-glass"></i> ค้นหาทรัพย์สิน
+                        </button>
+                    </div>
+
+                    <!-- Preset Asset Prompts -->
+                    <div class="flex flex-wrap gap-2 text-[11px] pt-1">
+                        <span class="text-slate-500 self-center">ตัวอย่างคำถาม:</span>
+                        <button onclick="triggerAssetSearch('พระเครื่องเลี่ยมทอง')" class="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded-lg border border-slate-700">1. พระเครื่องเลี่ยมทอง</button>
+                        <button onclick="triggerAssetSearch('รถยนต์หรู')" class="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded-lg border border-slate-700">2. รถยนต์หรูยึดปี 2567</button>
+                        <button onclick="triggerAssetSearch('โฉนดที่ดิน')" class="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded-lg border border-slate-700">3. โฉนดที่ดิน/อสังหาฯ</button>
+                        <button onclick="triggerAssetSearch('บัญชีธนาคาร')" class="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded-lg border border-slate-700">4. บัญชีธนาคารยอดสูง</button>
+                        <button onclick="triggerAssetSearch('สินทรัพย์ดิจิทัล')" class="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded-lg border border-slate-700">5. สินทรัพย์ดิจิทัล/Crypto</button>
+                    </div>
+                </div>
+
+                <!-- Asset Search Loading -->
+                <div id="asset-search-loading" class="hidden bg-slate-900 border border-amber-800/80 p-4 rounded-xl text-center space-y-2">
+                    <div class="text-amber-400 text-xs font-bold flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-spinner animate-spin"></i> AI Asset Search Engine กำลังกรองข้อมูลคลังทรัพย์สิน...
+                    </div>
+                </div>
+
+                <!-- Dynamic Asset Table (แสดงผลสอดคล้องกับคำถาม) -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2 text-xs">
+                        <span class="font-semibold text-slate-300">รายการทรัพย์สินยึดอายัดในคลัง (จำลอง 15 รายการ)</span>
+                        <span id="asset-result-badge" class="text-amber-400 font-bold">แสดง 15 รายการ</span>
+                    </div>
+
+                    <div id="asset-results-list" class="space-y-2 text-xs max-h-[450px] overflow-y-auto custom-scrollbar pr-1">
+                        <!-- Dynamically populated 15 assets via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE 4: แดชบอร์ดผู้บริหาร (มี Date Range Filter และ GIS Map ประเทศไทยแบบสมส่วน) -->
+            <div id="page-dashboard" class="page-content space-y-6 hidden">
+                <div class="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-emerald-400"></i> แดชบอร์ดผู้บริหาร ปปง. (Executive Dashboard)
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">ภาพรวม KPI ประสิทธิภาพการสกัดข้อมูล แผนที่ GIS สถิติตามพื้นที่</p>
+                    </div>
+
+                    <!-- Date Range Filter -->
+                    <div class="flex items-center gap-2 bg-slate-900 p-2 rounded-xl border border-slate-800 text-xs">
+                        <span class="text-slate-400 font-medium"><i class="fa-solid fa-calendar-days text-amber-400 mr-1"></i> ช่วงเวลา:</span>
+                        <select id="dashboard-date-range" onchange="updateDashboardRange(this.value)" class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1 outline-none">
+                            <option value="7d">ย้อนหลัง 7 วัน</option>
+                            <option value="30d" selected>ย้อนหลัง 30 วัน</option>
+                            <option value="q3">ประจำไตรมาสที่ 3/2569</option>
+                            <option value="year">ประจำปีงบประมาณ 2569</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+                        <div>
+                            <div class="text-xs text-slate-400 mb-1">ระยะเวลาประมวลผลเฉลี่ย</div>
+                            <div id="kpi-speed" class="text-2xl font-bold text-emerald-400 font-mono">1.2 นาที / สำนวน</div>
+                            <div class="text-[10px] text-emerald-500 mt-1"><i class="fa-solid fa-arrow-down"></i> เร็วกว่ากระบวนการเดิม 85%</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-emerald-950 border border-emerald-800 flex items-center justify-center text-emerald-400 text-xl">
+                            <i class="fa-solid fa-bolt"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+                        <div>
+                            <div class="text-xs text-slate-400 mb-1">มูลค่าทรัพย์สินยึดอายัดรวม</div>
+                            <div id="kpi-assets" class="text-2xl font-bold text-amber-400 font-mono">842,510,000 ฿</div>
+                            <div class="text-[10px] text-amber-500 mt-1"><i class="fa-solid fa-shield"></i> ประสิทธิภาพ AI 98.6%</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-amber-950 border border-amber-800 flex items-center justify-center text-amber-400 text-xl">
+                            <i class="fa-solid fa-vault"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+                        <div>
+                            <div class="text-xs text-slate-400 mb-1">คดีค้างเกินกำหนด (>90 วัน)</div>
+                            <div class="text-2xl font-bold text-slate-200 font-mono">0 คดี</div>
+                            <div class="text-[10px] text-slate-400 mt-1">ไม่มีสำนวนค้างสะสม</div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 text-xl">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GIS Map Thailand Vector & Chart -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-2 text-xs">
+                            <span class="font-semibold text-slate-300"><i class="fa-solid fa-map-location-dot text-emerald-400 mr-1.5"></i> แผนที่ GIS Hotspot ทรัพย์สินยึดอายัด (Polygon ประเทศไทยสมส่วน)</span>
+                        </div>
+                        <div id="gis-map" class="h-[340px] rounded-lg border border-slate-800 z-10"></div>
+                    </div>
+
+                    <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-2 text-xs">
+                            <span class="font-semibold text-slate-300"><i class="fa-solid fa-chart-column text-amber-400 mr-1.5"></i> ปริมาณคดีจำแนกตามกองคดี</span>
+                        </div>
+                        <div class="h-[340px] flex items-center justify-center">
+                            <canvas id="workloadChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE 5: ตั้งค่า & สถาปัตยกรรมระบบ Open Source Stack (สำหรับ Admin เท่านั้น) -->
+            <div id="page-admin" class="page-content space-y-6 hidden">
+                <div class="border-b border-slate-800 pb-4">
+                    <h2 class="text-xl font-bold text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-server"></i> ตั้งค่าระบบ & สถาปัตยกรรมเทคโนโลยี (เฉพาะ Admin)
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">การบริหารจัดการโครงสร้างพื้นฐาน Open Source Stack และ MLOps Model Orchestration</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                        <div class="font-bold text-slate-200 border-b border-slate-800 pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-database text-emerald-400"></i> Open Source Storage & Database Stack
+                        </div>
+                        <ul class="space-y-2 text-slate-300">
+                            <li class="flex justify-between p-2 bg-slate-950 rounded border border-slate-800">
+                                <span>MinIO Object Storage (คลังเก็บภาพสแกน)</span>
+                                <span class="text-emerald-400 font-bold">Online (Cluster)</span>
+                            </li>
+                            <li class="flex justify-between p-2 bg-slate-950 rounded border border-slate-800">
+                                <span>PostgreSQL + pgvector (ฐานข้อมูล RAG)</span>
+                                <span class="text-emerald-400 font-bold">Online</span>
+                            </li>
+                            <li class="flex justify-between p-2 bg-slate-950 rounded border border-slate-800">
+                                <span>n8n Workflow Automation Engine</span>
+                                <span class="text-emerald-400 font-bold">Active (Docker)</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                        <div class="font-bold text-slate-200 border-b border-slate-800 pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-brain text-amber-400"></i> AI Models Registry & MLOps Status
+                        </div>
+                        <ul class="space-y-2 text-slate-300">
+                            <li class="flex justify-between p-2 bg-slate-950 rounded border border-slate-800">
+                                <span>Thai OCR & Handwritten Model</span>
+                                <span class="text-emerald-400 font-bold">v2.4.1 (Fine-tuned)</span>
+                            </li>
+                            <li class="flex justify-between p-2 bg-slate-950 rounded border border-slate-800">
+                                <span>Ad-hoc AMLO Form Engine (5 แบบฟอร์ม)</span>
+                                <span class="text-emerald-400 font-bold">v1.8.0</span>
+                            </li>
+                            <li class="flex justify-between p-2 bg-slate-950 rounded border border-slate-800">
+                                <span>Automated PII Masking Engine (NER)</span>
+                                <span class="text-emerald-400 font-bold">Active</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODAL: รายละเอียดคดี (Case Detail Pop-up) -->
+    <div id="case-detail-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-lg p-6 space-y-4 shadow-2xl animate-page">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 id="modal-case-title" class="font-bold text-sm text-emerald-400 flex items-center gap-2">
+                    <i class="fa-solid fa-folder-open"></i> รายละเอียดคดี
+                </h3>
+                <button onclick="closeCaseModal()" class="text-slate-500 hover:text-slate-300"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div id="modal-case-content" class="space-y-3 text-xs text-slate-300">
+                <!-- Dynamically populated -->
+            </div>
+
+            <div class="pt-2 flex justify-end">
+                <button onclick="closeCaseModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-xs font-semibold">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-slate-800 px-6 py-2.5 flex items-center justify-between text-[11px] text-slate-500">
+        <div>© 2026 สำนักงานป้องกันและปราบปรามการฟอกเงิน (สำนักงาน ปปง.)</div>
+        <div>ระบบ AMVIS - AMLO Vision Intelligent System</div>
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // System User Roles & Navigation Switcher
+        function changeUserRole(roleKey) {
+            const nameEl = document.getElementById('header-user-name');
+            const roleEl = document.getElementById('header-user-role');
+            const adminNav = document.getElementById('nav-admin');
+
+            const navScan = document.getElementById('nav-scan');
+            const navCases = document.getElementById('nav-cases');
+            const navAssets = document.getElementById('nav-assets');
+            const navDashboard = document.getElementById('nav-dashboard');
+
+            if (roleKey === 'admin') {
+                nameEl.innerText = "ผู้ดูแลระบบ (Admin)";
+                roleEl.innerText = "ศูนย์เทคโนโลยีสารสนเทศ (ศทส.)";
+                
+                navScan.classList.add('hidden');
+                navCases.classList.add('hidden');
+                navAssets.classList.add('hidden');
+                navDashboard.classList.add('hidden');
+                adminNav.classList.remove('hidden');
+
+                navigateTo('admin');
+                showToast("สลับบทบาทเป็น: เจ้าหน้าที่ผู้ดูแลระบบ (Admin)");
+            } else {
+                navScan.classList.remove('hidden');
+                navCases.classList.remove('hidden');
+                navAssets.classList.remove('hidden');
+                navDashboard.classList.remove('hidden');
+                adminNav.classList.add('hidden');
+
+                nameEl.innerText = "เจ้าหน้าที่ ปปง. (นิรนาม)";
+                roleEl.innerText = "นักวิชาการคอมพิวเตอร์ / ศทส.";
+                navigateTo('scan');
+            }
+        }
+
+        function navigateTo(pageId) {
+            document.querySelectorAll('.page-content').forEach(el => el.classList.add('hidden'));
+            const target = document.getElementById(`page-${pageId}`);
+            if (target) {
+                target.classList.remove('hidden');
+                target.classList.add('animate-page');
+            }
+
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                btn.classList.remove('bg-emerald-950/80', 'text-emerald-400', 'border-emerald-800/60');
+                btn.classList.add('text-slate-400');
+            });
+
+            const activeBtn = document.getElementById(`nav-${pageId}`);
+            if (activeBtn && pageId !== 'admin') {
+                activeBtn.classList.remove('text-slate-400');
+                activeBtn.classList.add('bg-emerald-950/80', 'text-emerald-400', 'border', 'border-emerald-800/60');
+            }
+
+            if (pageId === 'dashboard') {
+                setTimeout(initGisMapAndChart, 100);
+            } else if (pageId === 'cases') {
+                setTimeout(renderWorkflowConnections, 100);
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-notif');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        // PII Masking Toggle Functionality
+        function togglePiiMasking(isMasked) {
+            const box3 = document.getElementById('box-3');
+            const box4 = document.getElementById('box-4');
+            const statusBadge = document.getElementById('pii-status-badge');
+
+            if (isMasked) {
+                box3.className = "bounding-box bg-slate-950 text-slate-950 border-2 border-slate-900 px-2 rounded font-sans font-bold select-none cursor-pointer";
+                box3.innerText = "███-█-█████-█";
+
+                box4.className = "bounding-box bg-slate-950 text-slate-950 border-2 border-slate-900 px-2 rounded font-sans font-bold select-none cursor-pointer";
+                box4.innerText = "█████ อ.เมือง จ.เชียงใหม่";
+
+                statusBadge.className = "px-3 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-800 font-bold";
+                statusBadge.innerHTML = `<i class="fa-solid fa-eye-slash mr-1"></i> คาดดำข้อมูล PII อัตโนมัติ (Active)`;
+                showToast("เปิดการคาดดำปกปิดข้อมูลส่วนบุคคล (PII Masking)");
+            } else {
+                box3.className = "bounding-box bg-emerald-200 text-slate-900 border-2 border-emerald-600 px-1 rounded font-sans font-bold";
+                box3.innerText = "123-4-56789-0";
+
+                box4.className = "bounding-box bg-purple-200 text-slate-900 border-2 border-purple-600 px-1 rounded font-sans font-bold";
+                box4.innerText = "54321 อ.เมือง จ.เชียงใหม่";
+
+                statusBadge.className = "px-3 py-1 rounded-full bg-amber-950 text-amber-300 border border-amber-800 font-bold";
+                statusBadge.innerHTML = `<i class="fa-solid fa-eye mr-1"></i> แสดงข้อมูลจริง (Unmasked)`;
+                showToast("ปิดการคาดดำ - แสดงข้อมูลเต็มของเอกสาร");
+            }
+        }
+
+        // PAGE 1: Vision Cleansing Step Progress
+        function startStepByStepCleansing() {
+            document.getElementById('scan-step-1').classList.add('hidden');
+            document.getElementById('scan-step-2').classList.remove('hidden');
+
+            let step = 1;
+            const interval = setInterval(() => {
+                if (step <= 6) {
+                    const el = document.getElementById(`c-step-${step}`);
+                    el.classList.remove('text-slate-500', 'opacity-50');
+                    el.classList.add('text-emerald-400', 'font-bold');
+                    el.querySelector('i').className = "fa-solid fa-circle-check text-emerald-400";
+                    step++;
+                } else {
+                    clearInterval(interval);
+                    document.getElementById('cleansing-status-badge').innerText = "เสร็จสิ้น 100%";
+                    document.getElementById('cleansing-status-badge').className = "px-2.5 py-1 bg-emerald-950 text-emerald-300 border border-emerald-800 rounded-full text-[10px] font-bold";
+                    document.getElementById('cleansing-preview-box').classList.remove('hidden');
+                    showToast("ทำ Vision Cleansing 6 ขั้นตอนสำเร็จเรียบร้อย");
+                }
+            }, 300);
+        }
+
+        function acknowledgeCleansingAndShowDualSync() {
+            document.getElementById('scan-step-2').classList.add('hidden');
+            document.getElementById('scan-step-3').classList.remove('hidden');
+            showToast("เข้าสู่หน้าจอตรวจทาน Dual-Sync");
+        }
+
+        function updateSensitivity(val) {
+            document.getElementById('sensitivity-val').innerText = `${val}%`;
+            const badge = document.getElementById('badge-status-display');
+
+            if (val > 85) {
+                badge.className = "px-3 py-1 rounded-full bg-red-950 text-red-400 border border-red-800 font-bold";
+                badge.innerText = "แดง = ความแม่นยำต่ำ ต้องตรวจทาน";
+            } else if (val > 70) {
+                badge.className = "px-3 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold";
+                badge.innerText = "เขียว = แม่นยำสูง (>80%)";
+            } else {
+                badge.className = "px-3 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800 font-bold";
+                badge.innerText = "เหลือง = ปานกลาง";
+            }
+        }
+
+        function handleInlineEdit(fieldNum, val) {
+            const callout = document.getElementById('inline-callout');
+            const calloutNew = document.getElementById('callout-new');
+            const targetBox = document.getElementById(`box-${fieldNum}`);
+
+            if (targetBox) {
+                targetBox.innerText = val;
+                targetBox.className = "bounding-box bg-purple-200 border-2 border-purple-600 px-1 rounded font-bold font-sans text-slate-900";
+            }
+
+            calloutNew.innerText = val;
+            callout.classList.remove('hidden');
+        }
+
+        function confirmAndSendScan() {
+            showToast("ยืนยันข้อมูล Dual-Sync และส่งต่อผู้อนุมัติสำเร็จ!");
+            navigateTo('cases');
+        }
+
+        // ==========================================
+        // 1. DYNAMIC INTERACTIVE VISUAL NODE GRAPH ENGINE
+        // ==========================================
+        let connections = [
+            { from: 'node-1', to: 'node-2', color: '#10b981' },
+            { from: 'node-2', to: 'node-3', color: '#f59e0b' }
+        ];
+
+        let activeDragNode = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        document.querySelectorAll('.node-element').forEach(node => {
+            node.addEventListener('mousedown', function(e) {
+                activeDragNode = this;
+                const rect = this.getBoundingClientRect();
+                dragOffsetX = e.clientX - rect.left;
+                dragOffsetY = e.clientY - rect.top;
+                this.style.zIndex = 100;
+            });
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!activeDragNode) return;
+            const canvas = document.getElementById('node-graph-canvas');
+            const canvasRect = canvas.getBoundingClientRect();
+            
+            let x = e.clientX - canvasRect.left - dragOffsetX;
+            let y = e.clientY - canvasRect.top - dragOffsetY;
+
+            x = Math.max(10, Math.min(canvasRect.width - 180, x));
+            y = Math.max(10, Math.min(canvasRect.height - 80, y));
+
+            activeDragNode.style.left = x + 'px';
+            activeDragNode.style.top = y + 'px';
+
+            renderWorkflowConnections();
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (activeDragNode) {
+                activeDragNode.style.zIndex = 10;
+                activeDragNode = null;
+            }
+        });
+
+        function renderWorkflowConnections() {
+            const svg = document.getElementById('workflow-svg-layer');
+            if (!svg) return;
+
+            const defs = svg.querySelector('defs');
+            svg.innerHTML = '';
+            if (defs) svg.appendChild(defs);
+
+            const canvasRect = document.getElementById('node-graph-canvas').getBoundingClientRect();
+
+            connections.forEach(conn => {
+                const fromEl = document.getElementById(conn.from);
+                const toEl = document.getElementById(conn.to);
+
+                if (!fromEl || !toEl) return;
+
+                const r1 = fromEl.getBoundingClientRect();
+                const r2 = toEl.getBoundingClientRect();
+
+                const x1 = (r1.left + r1.width / 2) - canvasRect.left;
+                const y1 = (r1.top + r1.height / 2) - canvasRect.top;
+                const x2 = (r2.left + r2.width / 2) - canvasRect.left;
+                const y2 = (r2.top + r2.height / 2) - canvasRect.top;
+
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const cx1 = x1 + dx * 0.5;
+                const cy1 = y1;
+                const cx2 = x1 + dx * 0.5;
+                const cy2 = y2;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`);
+                path.setAttribute('stroke', conn.color || '#10b981');
+                path.setAttribute('stroke-width', '2.5');
+                path.setAttribute('fill', 'none');
+                path.setAttribute('class', 'flow-line');
+                path.setAttribute('marker-end', conn.color === '#f59e0b' ? 'url(#arrowhead-amber)' : 'url(#arrowhead)');
+
+                svg.appendChild(path);
+            });
+        }
+
+        function addNewConnection() {
+            const from = document.getElementById('link-from-select').value;
+            const to = document.getElementById('link-to-select').value;
+
+            if (from === to) {
+                showToast("ไม่สามารถเชื่อมโหนดเข้าตัวเองได้");
+                return;
+            }
+
+            connections.push({ from, to, color: '#10b981' });
+            renderWorkflowConnections();
+            showToast("เพิ่มเส้นเชื่อมโยงกระบวนการสำเร็จ");
+        }
+
+        function clearAllConnections() {
+            connections = [];
+            renderWorkflowConnections();
+            showToast("รีเซ็ตเส้นทางเชื่อมโยงเรียบร้อย");
+        }
+
+        // Case Search & Modal Details
+        const caseDatabase = {
+            'คดีใกล้ครบกำหนดอุทธรณ์': [
+                { id: 'ย. 842/2567', suspect: 'ผู้ต้องหานิรนาม A', title: 'คดีสืบสวนการพนันออนไลน์และฟอกเงิน', val: '842,510,000 บาท', dept: 'กองคดี 3', status: 'อุทธรณ์คงเหลือ 2 วัน', color: 'red' },
+                { id: 'ย. 810/2567', suspect: 'ผู้ต้องหานิรนาม B', title: 'คดีฉ้อโกงประชาชนและฟอกเงินข้ามชาติ', val: '120,000,000 บาท', dept: 'กองคดี 1', status: 'อุทธรณ์คงเหลือ 5 วัน', color: 'red' }
+            ],
+            'คดีที่ยังไม่มีผู้รับผิดชอบ': [
+                { id: 'ย. 890/2567', suspect: 'ผู้ต้องหานิรนาม C', title: 'คดีสืบสวนทรัพย์สินบัญชีม้าออนไลน์', val: '45,000,000 บาท', dept: 'ยังไม่มอบหมาย', status: 'รอจ่ายสำนวน', color: 'amber' }
+            ],
+            'สำนวนคดีฟอกเงินการพนันออนไลน์': [
+                { id: 'ย. 842/2567', suspect: 'ผู้ต้องหานิรนาม A', title: 'คดีสืบสวนการพนันออนไลน์และฟอกเงิน', val: '842,510,000 บาท', dept: 'กองคดี 3', status: 'กองคดี 3 รับผิดชอบ', color: 'emerald' },
+                { id: 'ย. 750/2567', suspect: 'ผู้ต้องหานิรนาม D', title: 'คดีเว็บไซต์พนันต่างประเทศ', val: '95,000,000 บาท', dept: 'กองคดี 2', status: 'ส่งอัยการแล้ว', color: 'emerald' }
+            ]
+        };
+
+        function triggerCaseSearch(query) {
+            document.getElementById('ai-search-input').value = query;
+            executeAiCaseSearch();
+        }
+
+        function executeAiCaseSearch() {
+            const query = document.getElementById('ai-search-input').value;
+            const loading = document.getElementById('ai-search-loading');
+            const list = document.getElementById('case-results-list');
+            const badge = document.getElementById('case-result-badge');
+
+            loading.classList.remove('hidden');
+            
+            setTimeout(() => {
+                loading.classList.add('hidden');
+                const results = caseDatabase[query] || caseDatabase['สำนวนคดีฟอกเงินการพนันออนไลน์'];
+                badge.innerText = `แสดง ${results.length} คดี`;
+
+                list.innerHTML = results.map(item => `
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <div class="font-bold text-${item.color}-400">${item.id} - ${item.title}</div>
+                            <div class="text-[11px] text-slate-400">ผู้ต้องหา: ${item.suspect} | มูลค่าทรัพย์: ${item.val} | หน่วยงาน: ${item.dept}</div>
+                        </div>
+                        <button onclick="openCaseModal('${item.id}', '${item.suspect}', '${item.title}', '${item.val}', '${item.dept}', '${item.status}')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1 rounded-lg text-[11px] font-semibold">เปิดคดี</button>
+                    </div>
+                `).join('');
+
+                document.getElementById('node-2-title').innerText = results[0].dept;
+
+                showToast(`ประมวลผลคำถาม '${query}' สำเร็จ`);
+            }, 500);
+        }
+
+        function openCaseModal(id, suspect, title, val, dept, status) {
+            document.getElementById('modal-case-title').innerHTML = `<i class="fa-solid fa-folder-open"></i> รายละเอียดคดี ${id}`;
+            document.getElementById('modal-case-content').innerHTML = `
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2">
+                    <div><span class="text-slate-500">ชื่อคดี/ฐานความผิด:</span> <strong class="text-slate-200">${title}</strong></div>
+                    <div><span class="text-slate-500">ผู้ต้องหาในคดี:</span> <strong class="text-amber-400">${suspect}</strong></div>
+                    <div><span class="text-slate-500">มูลค่าทรัพย์สินยึดอายัด:</span> <strong class="text-emerald-400">${val}</strong></div>
+                    <div><span class="text-slate-500">หน่วยงานเจ้าของเรื่อง:</span> <strong class="text-slate-200">${dept}</strong></div>
+                    <div><span class="text-slate-500">สถานะคดีปัจจุบัน:</span> <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold">${status}</span></div>
+                </div>
+            `;
+            document.getElementById('case-detail-modal').classList.remove('hidden');
+        }
+
+        function closeCaseModal() {
+            document.getElementById('case-detail-modal').classList.add('hidden');
+        }
+
+        // Asset Database (15 Items)
+        const fifteenAssets = [
+            { name: "1. รถยนต์ Porsche 911 Carrera (ขก 9999 กทม)", caseId: "ย. 842/2567", val: "15,000,000 บาท", cat: "ยานพาหนะ" },
+            { name: "2. พระสมเด็จวัดระฆัง เลี่ยมทองคำแท้ 3 องค์", caseId: "ย. 842/2567", val: "1,200,000 บาท", cat: "พระเครื่อง" },
+            { name: "3. เงินฝากธนาคารกสิกรไทย เลขที่ 123-4-56789-0", caseId: "ย. 842/2567", val: "45,000,000 บาท", cat: "บัญชีธนาคาร" },
+            { name: "4. โฉนดที่ดิน อ.เมือง จ.เชียงใหม่ 5 ไร่", caseId: "ย. 842/2567", val: "25,000,000 บาท", cat: "โฉนดที่ดิน" },
+            { name: "5. สินทรัพย์ดิจิทัล Bitcoin (BTC) 12.5 Coins", caseId: "ย. 810/2567", val: "32,000,000 บาท", cat: "สินทรัพย์ดิจิทัล" },
+            { name: "6. รถยนต์ Mercedes-Benz G63 AMG", caseId: "ย. 810/2567", val: "18,500,000 บาท", cat: "ยานพาหนะ" },
+            { name: "7. นาฬิกาข้อมือ Patek Philippe Nautilus", caseId: "ย. 810/2567", val: "4,500,000 บาท", cat: "ของสะสม" },
+            { name: "8. กระเป๋าแบรนด์เนม Hermès Birkin 4 ใบ", caseId: "ย. 890/2567", val: "3,800,000 บาท", cat: "ของสะสม" },
+            { name: "9. ห้องชุดคอนโดมิเนียมหรู เขตวัฒนา กทม.", caseId: "ย. 890/2567", val: "28,000,000 บาท", cat: "โฉนดที่ดิน" },
+            { name: "10. เงินสดธนบัตรไทย ยึดในเซฟ", caseId: "ย. 750/2567", val: "12,000,000 บาท", cat: "เงินสด" },
+            { name: "11. ทองคำแท่ง น้ำหนักรวม 100 บาท", caseId: "ย. 750/2567", val: "4,100,000 บาท", cat: "ของสะสม" },
+            { name: "12. บัญชีธนาคารไทยพาณิชย์ ยอดอายัด", caseId: "ย. 750/2567", val: "18,900,000 บาท", cat: "บัญชีธนาคาร" },
+            { name: "13. รถสปอร์ต Ferrari F8 Tributo", caseId: "ย. 842/2567", val: "24,000,000 บาท", cat: "ยานพาหนะ" },
+            { name: "14. พระนางพญา เลี่ยมทองคำล้อมเพชร", caseId: "ย. 810/2567", val: "850,000 บาท", cat: "พระเครื่อง" },
+            { name: "15. สินทรัพย์ดิจิทัล Tether (USDT)", caseId: "ย. 890/2567", val: "15,000,000 บาท", cat: "สินทรัพย์ดิจิทัล" }
+        ];
+
+        function triggerAssetSearch(query) {
+            document.getElementById('asset-search-input').value = query;
+            executeAssetSearch();
+        }
+
+        function executeAssetSearch() {
+            const query = document.getElementById('asset-search-input').value;
+            const loading = document.getElementById('asset-search-loading');
+            const list = document.getElementById('asset-results-list');
+            const badge = document.getElementById('asset-result-badge');
+
+            loading.classList.remove('hidden');
+
+            setTimeout(() => {
+                loading.classList.add('hidden');
+                
+                let filtered = fifteenAssets;
+                if (query.includes('พระเครื่อง')) filtered = fifteenAssets.filter(a => a.cat === 'พระเครื่อง');
+                else if (query.includes('รถยนต์')) filtered = fifteenAssets.filter(a => a.cat === 'ยานพาหนะ');
+                else if (query.includes('ที่ดิน')) filtered = fifteenAssets.filter(a => a.cat === 'โฉนดที่ดิน');
+                else if (query.includes('ธนาคาร')) filtered = fifteenAssets.filter(a => a.cat === 'บัญชีธนาคาร');
+                else if (query.includes('ดิจิทัล')) filtered = fifteenAssets.filter(a => a.cat === 'สินทรัพย์ดิจิทัล');
+
+                badge.innerText = `แสดง ${filtered.length} รายการ`;
+
+                list.innerHTML = filtered.map(item => `
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <div class="font-bold text-slate-200">${item.name}</div>
+                            <div class="text-[11px] text-slate-400">อ้างอิง: ${item.caseId} | ประเภท: ${item.cat}</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-amber-400 font-mono font-bold">${item.val}</span>
+                        </div>
+                    </div>
+                `).join('');
+
+                showToast(`กรองรายการทรัพย์สิน '${query}' สำเร็จ`);
+            }, 500);
+        }
+
+        // Executive Dashboard Date Range Filter
+        function updateDashboardRange(rangeVal) {
+            const kpiSpeed = document.getElementById('kpi-speed');
+            const kpiAssets = document.getElementById('kpi-assets');
+
+            if (rangeVal === '7d') {
+                kpiSpeed.innerText = "0.9 นาที / สำนวน";
+                kpiAssets.innerText = "145,000,000 ฿";
+            } else if (rangeVal === '30d') {
+                kpiSpeed.innerText = "1.2 นาที / สำนวน";
+                kpiAssets.innerText = "842,510,000 ฿";
+            } else if (rangeVal === 'q3') {
+                kpiSpeed.innerText = "1.1 นาที / สำนวน";
+                kpiAssets.innerText = "1,250,000,000 ฿";
+            } else if (rangeVal === 'year') {
+                kpiSpeed.innerText = "1.4 นาที / สำนวน";
+                kpiAssets.innerText = "3,480,000,000 ฿";
+            }
+            showToast("อัปเดตข้อมูลแดชบอร์ดตามช่วงเวลาเรียบร้อยแล้ว");
+        }
+
+        // ==========================================
+        // 2. HIGH-ACCURACY THAILAND POLYGON GIS ENGINE
+        // ==========================================
+        let mapInited = false;
+        function initGisMapAndChart() {
+            if (mapInited) return;
+            mapInited = true;
+
+            const map = L.map('gis-map', {
+                center: [13.2, 101.5],
+                zoom: 5.8,
+                attributionControl: false,
+                zoomControl: true,
+                renderer: L.canvas()
+            });
+
+            const CustomCanvasLayer = L.GridLayer.extend({
+                createTile: function (coords) {
+                    const tile = L.DomUtil.create('canvas', 'leaflet-tile');
+                    const size = this.getTileSize();
+                    tile.width = size.x; tile.height = size.y;
+                    const ctx = tile.getContext('2d');
+                    ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, size.x, size.y);
+                    ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    for (let x = 0; x < size.x; x += 32) { ctx.moveTo(x, 0); ctx.lineTo(x, size.y); }
+                    for (let y = 0; y < size.y; y += 32) { ctx.moveTo(0, y); ctx.lineTo(size.x, y); }
+                    ctx.stroke();
+                    return tile;
+                }
+            });
+            new CustomCanvasLayer().addTo(map);
+
+            const thailandGeoJSON = {
+                "type": "FeatureCollection",
+                "features": [{
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[
+                            [98.1, 19.7], [98.9, 20.4], [100.0, 20.3], [100.5, 20.1], 
+                            [100.8, 19.6], [101.2, 19.5], [101.2, 18.2], [102.1, 17.9], 
+                            [102.8, 17.9], [104.1, 18.0], [104.8, 17.4], [104.7, 16.5], 
+                            [105.4, 15.8], [105.6, 15.2], [105.2, 14.4], [104.2, 14.4], 
+                            [103.1, 14.3], [102.5, 14.1], [102.7, 12.8], [102.9, 11.6], 
+                            [102.1, 12.2], [100.9, 12.6], [100.8, 13.5], [100.1, 13.5], 
+                            [99.9, 12.8], [99.8, 11.5], [99.2, 11.0], [99.2, 10.0], 
+                            [99.8, 9.3], [100.1, 8.4], [100.6, 7.5], [101.3, 6.9], 
+                            [102.1, 6.2], [101.8, 5.8], [101.2, 5.7], [101.0, 6.1], 
+                            [100.2, 6.6], [99.6, 6.8], [99.0, 7.5], [98.2, 8.1], 
+                            [98.3, 9.5], [98.7, 10.2], [99.2, 11.1], [99.6, 12.2], 
+                            [99.8, 13.4], [99.1, 14.1], [98.4, 14.6], [98.3, 15.2], 
+                            [98.9, 15.6], [98.1, 16.5], [97.4, 18.0], [97.9, 18.5], 
+                            [98.1, 19.7]
+                        ]]
+                    }
+                }]
+            };
+
+            L.geoJSON(thailandGeoJSON, {
+                style: {
+                    color: '#10b981', weight: 1.8, opacity: 0.9, fillColor: '#064e3b', fillOpacity: 0.38
+                }
+            }).addTo(map);
+
+            const hotspots = [
+                { name: "กรุงเทพมหานคร", lat: 13.7563, lng: 100.5018, val: "450,000,000 บาท" },
+                { name: "เชียงใหม่", lat: 18.7883, lng: 98.9853, val: "120,000,000 บาท" },
+                { name: "ภูเก็ต", lat: 7.8804, lng: 98.3923, val: "95,000,000 บาท" },
+                { name: "ชลบุรี", lat: 13.3611, lng: 100.9847, val: "177,510,000 บาท" }
+            ];
+
+            hotspots.forEach(spot => {
+                L.circleMarker([spot.lat, spot.lng], {
+                    radius: 7, fillColor: '#f59e0b', color: '#ffffff', weight: 1.5, opacity: 1, fillOpacity: 0.9
+                }).addTo(map).bindPopup(`
+                    <div style="color:#0f172a; font-size:11px;">
+                        <b style="color:#047857;">${spot.name}</b><br>ยอดอายัด: <b>${spot.val}</b>
+                    </div>
+                `);
+            });
+
+            const ctx = document.getElementById('workloadChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['กองคดี 1', 'กองคดี 2', 'กองคดี 3', 'กองคดี 4', 'กองคดี 5'],
+                    datasets: [{ label: 'ปริมาณคดีประมวลผล (สำนวน)', data: [120, 190, 300, 150, 80], backgroundColor: '#10b981', borderRadius: 6 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+                    scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } } }
+                }
+            });
+        }
+
+        window.onload = function() {
+            executeAiCaseSearch();
+            executeAssetSearch();
+            setTimeout(renderWorkflowConnections, 300);
+        };
+    </script>
+</body>
+</html>
