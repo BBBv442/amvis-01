@@ -38,6 +38,13 @@
             animation: flowDash 1s linear infinite;
         }
 
+        .page-content {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+
         /* Draggable Node Styling */
         .node-element { cursor: grab; user-select: none; transition: box-shadow 0.2s ease; }
         .node-element:active { cursor: grabbing; box-shadow: 0 0 25px rgba(16, 185, 129, 0.7); }
@@ -97,9 +104,9 @@
         </div>
     </header>
 
-    <div class="flex flex-1 overflow-hidden">
+    <div class="flex h-screen w-screen overflow-hidden bg-slate-950">
         <!-- Sidebar Navigation -->
-        <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4 text-xs shrink-0">
+        <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4 text-xs shrink-0 z-30">
             <div class="space-y-4">
                 <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2">เมนูหลักระบบ</div>
                 <nav class="space-y-1.5">
@@ -131,7 +138,7 @@
                 <div class="text-[10px] text-slate-500">ระบบสกัดและวิเคราะห์ข้อมูลคดี v1.0.6</div>
             </div>
         </aside>
-
+        
         <!-- Main Content Area -->
         <main class="flex-1 bg-slate-950 overflow-y-auto custom-scrollbar p-6">
 
@@ -175,7 +182,7 @@
                     </button>
                 </div>
             </div>
-        </div>
+        
 
                 <!-- STEP 2: แสดง Progress ทีละขั้นตอน & PDF Preview สรุปผล -->
                 <div id="scan-step-2" class="hidden bg-slate-900 border border-emerald-800/80 rounded-xl p-6 space-y-5 shadow-2xl animate-page">
