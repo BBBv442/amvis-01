@@ -137,28 +137,45 @@
 
             <!-- PAGE 1: สแกนเอกสาร AI OCR & Dual-Sync -->
             <div id="page-scan" class="page-content space-y-6">
-                <div class="border-b border-slate-800 pb-4">
-                    <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
-                        <i class="fa-solid fa-microscope text-emerald-400"></i> สแกนเอกสารคดี และการตรวจทาน Dual-Sync
-                    </h2>
-                    <p class="text-xs text-slate-400 mt-1">นำเข้าเอกสารคดี ทำ Vision Cleansing, ปกปิดข้อมูลส่วนบุคคล (PII Masking) และตรวจทานข้อมูลสอดคล้องกันสองทาง</p>
+            <div class="border-b border-slate-800 pb-4">
+                <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-microscope text-emerald-400"></i> สแกนเอกสารคดี และการตรวจทาน Dual-Sync
+                </h2>
+                <p class="text-xs text-slate-400 mt-1">นำเข้าเอกสารคดี ทำ Vision Cleansing, ปกปิดข้อมูลส่วนบุคคล (PII Masking) และตรวจทานข้อมูลสอดคล้องกันสองทาง</p>
+            </div>
+
+            <!-- STEP 1: หน้าสแกน / นำเข้าเอกสาร -->
+            <div id="scan-step-1" 
+                class="bg-slate-900 border border-slate-800 border-dashed rounded-xl p-8 text-center space-y-4 interactive-card cursor-pointer transition hover:border-emerald-500/50"
+                onclick="document.getElementById('file-input').click()"
+                ondragover="handleDragOver(event)"
+                ondragleave="handleDragLeave(event)"
+                ondrop="handleDrop(event)">
+                
+                <!-- Input File ที่ถูกซ่อนไว้ -->
+                <input type="file" id="file-input" class="hidden" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileSelect(event)">
+
+                <div class="w-16 h-16 rounded-full bg-emerald-950 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-2xl mx-auto shadow-inner pointer-events-none">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <div class="pointer-events-none">
+                    <h3 class="text-base font-bold text-slate-200">นำเข้าเอกสารสำนวนคดี (PDF / JPG / PNG)</h3>
+                    <p class="text-xs text-slate-400 mt-1">ลากและวางไฟล์เอกสารคำพิพากษา, คำสั่ง ย., หรือบันทึกคำให้การที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
                 </div>
 
-                <!-- STEP 1: หน้าสแกน / นำเข้าเอกสาร -->
-                <div id="scan-step-1" class="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center space-y-4 interactive-card">
-                    <div class="w-16 h-16 rounded-full bg-emerald-950 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-2xl mx-auto shadow-inner">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-base font-bold text-slate-200">นำเข้าเอกสารสำนวนคดี (PDF / JPG / PNG)</h3>
-                        <p class="text-xs text-slate-400 mt-1">ลากและวางไฟล์เอกสารคำพิพากษา, คำสั่ง ย., หรือบันทึกคำให้การที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
-                    </div>
-                    <div class="flex items-center justify-center gap-3 pt-2">
-                        <button onclick="startStepByStepCleansing()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 transition hover:scale-105">
-                            <i class="fa-solid fa-play"></i> เริ่มกระบวนการสแกนและประมวลผล AI
-                        </button>
-                    </div>
+                <!-- กล่องแสดงรายชื่อไฟล์ที่เลือกล่าสุด -->
+                <div id="file-list" class="hidden text-xs text-emerald-400 font-medium bg-slate-950/60 p-3 rounded-lg border border-slate-800 max-w-md mx-auto pointer-events-none">
+                    <i class="fa-solid fa-file-lines mr-1"></i> <span id="file-count">เลือกแล้ว 0 ไฟล์</span>
                 </div>
+
+                <div class="flex items-center justify-center gap-3 pt-2">
+                    <!-- หยุด event propagation เมื่อคลิกปุ่ม เพื่อไม่ให้ไปเปิด dialog เลือกไฟล์ซ้ำ -->
+                    <button onclick="event.stopPropagation(); startStepByStepCleansing()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 transition hover:scale-105">
+                        <i class="fa-solid fa-play"></i> เริ่มกระบวนการสแกนและประมวลผล AI
+                    </button>
+                </div>
+            </div>
+        </div>
 
                 <!-- STEP 2: แสดง Progress ทีละขั้นตอน & PDF Preview สรุปผล -->
                 <div id="scan-step-2" class="hidden bg-slate-900 border border-emerald-800/80 rounded-xl p-6 space-y-5 shadow-2xl animate-page">
@@ -673,6 +690,7 @@
 
     <!-- JavaScript Logic -->
     <script>
+        
         // System User Roles & Navigation Switcher
         function changeUserRole(roleKey) {
             const nameEl = document.getElementById('header-user-name');
@@ -773,6 +791,56 @@
                 statusBadge.className = "px-3 py-1 rounded-full bg-amber-950 text-amber-300 border border-amber-800 font-bold";
                 statusBadge.innerHTML = `<i class="fa-solid fa-eye mr-1"></i> แสดงข้อมูลจริง (Unmasked)`;
                 showToast("ปิดการคาดดำ - แสดงข้อมูลเต็มของเอกสาร");
+            }
+        }
+
+        let uploadedFiles = [];
+
+        // จัดการเมื่อเลือผ่าน File Dialog
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            updateFileList(files);
+        }
+
+        // จัดการ Drag & Drop
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.classList.add('border-emerald-500', 'bg-slate-800/50');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.classList.remove('border-emerald-500', 'bg-slate-800/50');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const dropArea = event.currentTarget;
+            dropArea.classList.remove('border-emerald-500', 'bg-slate-800/50');
+
+            const files = event.dataTransfer.files;
+            updateFileList(files);
+        }
+
+        // อัปเดตการแสดงผลเมื่อมีไฟล์ถูกเลือก/วาง
+        function updateFileList(files) {
+            if (files.length > 0) {
+                uploadedFiles = Array.from(files);
+                
+                const fileListContainer = document.getElementById('file-list');
+                const fileCountSpan = document.getElementById('file-count');
+                
+                fileListContainer.classList.remove('hidden');
+                
+                if (files.length === 1) {
+                    fileCountSpan.textContent = `ไฟล์ที่เลือก: ${files[0].name}`;
+                } else {
+                    fileCountSpan.textContent = `เลือกแล้ว ${files.length} ไฟล์ (${files[0].name} และอื่นๆ)`;
+                }
             }
         }
 
@@ -1102,97 +1170,102 @@
         // ==========================================
         let mapInited = false;
         function initGisMapAndChart() {
-            if (mapInited) return;
-            mapInited = true;
+    if (mapInited) return;
+    mapInited = true;
 
-            const map = L.map('gis-map', {
-                center: [13.2, 101.5],
-                zoom: 5.8,
-                attributionControl: false,
-                zoomControl: true,
-                renderer: L.canvas()
-            });
+    const map = L.map('gis-map', {
+        center: [13.2, 101.5],
+        zoom: 5.8,
+        attributionControl: false,
+        zoomControl: true,
+        renderer: L.canvas()
+    });
 
-            const CustomCanvasLayer = L.GridLayer.extend({
-                createTile: function (coords) {
-                    const tile = L.DomUtil.create('canvas', 'leaflet-tile');
-                    const size = this.getTileSize();
-                    tile.width = size.x; tile.height = size.y;
-                    const ctx = tile.getContext('2d');
-                    ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, size.x, size.y);
-                    ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    for (let x = 0; x < size.x; x += 32) { ctx.moveTo(x, 0); ctx.lineTo(x, size.y); }
-                    for (let y = 0; y < size.y; y += 32) { ctx.moveTo(0, y); ctx.lineTo(size.x, y); }
-                    ctx.stroke();
-                    return tile;
-                }
-            });
-            new CustomCanvasLayer().addTo(map);
+    // 📌 แก้ปัญหาแผนที่เทา / ขนาดไม่เต็มจอเมื่ออยู่บน Tab หรือ Page ที่เคยซ่อนไว้
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 100);
 
-            const thailandGeoJSON = {
-                "type": "FeatureCollection",
-                "features": [{
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[
-                            [98.1, 19.7], [98.9, 20.4], [100.0, 20.3], [100.5, 20.1], 
-                            [100.8, 19.6], [101.2, 19.5], [101.2, 18.2], [102.1, 17.9], 
-                            [102.8, 17.9], [104.1, 18.0], [104.8, 17.4], [104.7, 16.5], 
-                            [105.4, 15.8], [105.6, 15.2], [105.2, 14.4], [104.2, 14.4], 
-                            [103.1, 14.3], [102.5, 14.1], [102.7, 12.8], [102.9, 11.6], 
-                            [102.1, 12.2], [100.9, 12.6], [100.8, 13.5], [100.1, 13.5], 
-                            [99.9, 12.8], [99.8, 11.5], [99.2, 11.0], [99.2, 10.0], 
-                            [99.8, 9.3], [100.1, 8.4], [100.6, 7.5], [101.3, 6.9], 
-                            [102.1, 6.2], [101.8, 5.8], [101.2, 5.7], [101.0, 6.1], 
-                            [100.2, 6.6], [99.6, 6.8], [99.0, 7.5], [98.2, 8.1], 
-                            [98.3, 9.5], [98.7, 10.2], [99.2, 11.1], [99.6, 12.2], 
-                            [99.8, 13.4], [99.1, 14.1], [98.4, 14.6], [98.3, 15.2], 
-                            [98.9, 15.6], [98.1, 16.5], [97.4, 18.0], [97.9, 18.5], 
-                            [98.1, 19.7]
-                        ]]
-                    }
-                }]
-            };
-
-            L.geoJSON(thailandGeoJSON, {
-                style: {
-                    color: '#10b981', weight: 1.8, opacity: 0.9, fillColor: '#064e3b', fillOpacity: 0.38
-                }
-            }).addTo(map);
-
-            const hotspots = [
-                { name: "กรุงเทพมหานคร", lat: 13.7563, lng: 100.5018, val: "450,000,000 บาท" },
-                { name: "เชียงใหม่", lat: 18.7883, lng: 98.9853, val: "120,000,000 บาท" },
-                { name: "ภูเก็ต", lat: 7.8804, lng: 98.3923, val: "95,000,000 บาท" },
-                { name: "ชลบุรี", lat: 13.3611, lng: 100.9847, val: "177,510,000 บาท" }
-            ];
-
-            hotspots.forEach(spot => {
-                L.circleMarker([spot.lat, spot.lng], {
-                    radius: 7, fillColor: '#f59e0b', color: '#ffffff', weight: 1.5, opacity: 1, fillOpacity: 0.9
-                }).addTo(map).bindPopup(`
-                    <div style="color:#0f172a; font-size:11px;">
-                        <b style="color:#047857;">${spot.name}</b><br>ยอดอายัด: <b>${spot.val}</b>
-                    </div>
-                `);
-            });
-
-            const ctx = document.getElementById('workloadChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['กองคดี 1', 'กองคดี 2', 'กองคดี 3', 'กองคดี 4', 'กองคดี 5'],
-                    datasets: [{ label: 'ปริมาณคดีประมวลผล (สำนวน)', data: [120, 190, 300, 150, 80], backgroundColor: '#10b981', borderRadius: 6 }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
-                    scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } } }
-                }
-            });
+    const CustomCanvasLayer = L.GridLayer.extend({
+        createTile: function (coords) {
+            const tile = L.DomUtil.create('canvas', 'leaflet-tile');
+            const size = this.getTileSize();
+            tile.width = size.x; tile.height = size.y;
+            const ctx = tile.getContext('2d');
+            ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, size.x, size.y);
+            ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let x = 0; x < size.x; x += 32) { ctx.moveTo(x, 0); ctx.lineTo(x, size.y); }
+            for (let y = 0; y < size.y; y += 32) { ctx.moveTo(0, y); ctx.lineTo(size.x, y); }
+            ctx.stroke();
+            return tile;
         }
+    });
+    new CustomCanvasLayer().addTo(map);
+
+    const thailandGeoJSON = {
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[
+                    [98.1, 19.7], [98.9, 20.4], [100.0, 20.3], [100.5, 20.1], 
+                    [100.8, 19.6], [101.2, 19.5], [101.2, 18.2], [102.1, 17.9], 
+                    [102.8, 17.9], [104.1, 18.0], [104.8, 17.4], [104.7, 16.5], 
+                    [105.4, 15.8], [105.6, 15.2], [105.2, 14.4], [104.2, 14.4], 
+                    [103.1, 14.3], [102.5, 14.1], [102.7, 12.8], [102.9, 11.6], 
+                    [102.1, 12.2], [100.9, 12.6], [100.8, 13.5], [100.1, 13.5], 
+                    [99.9, 12.8], [99.8, 11.5], [99.2, 11.0], [99.2, 10.0], 
+                    [99.8, 9.3], [100.1, 8.4], [100.6, 7.5], [101.3, 6.9], 
+                    [102.1, 6.2], [101.8, 5.8], [101.2, 5.7], [101.0, 6.1], 
+                    [100.2, 6.6], [99.6, 6.8], [99.0, 7.5], [98.2, 8.1], 
+                    [98.3, 9.5], [98.7, 10.2], [99.2, 11.1], [99.6, 12.2], 
+                    [99.8, 13.4], [99.1, 14.1], [98.4, 14.6], [98.3, 15.2], 
+                    [98.9, 15.6], [98.1, 16.5], [97.4, 18.0], [97.9, 18.5], 
+                    [98.1, 19.7]
+                ]]
+            }
+        }]
+    };
+
+    L.geoJSON(thailandGeoJSON, {
+        style: {
+            color: '#10b981', weight: 1.8, opacity: 0.9, fillColor: '#064e3b', fillOpacity: 0.38
+        }
+    }).addTo(map);
+
+    const hotspots = [
+        { name: "กรุงเทพมหานคร", lat: 13.7563, lng: 100.5018, val: "450,000,000 บาท" },
+        { name: "เชียงใหม่", lat: 18.7883, lng: 98.9853, val: "120,000,000 บาท" },
+        { name: "ภูเก็ต", lat: 7.8804, lng: 98.3923, val: "95,000,000 บาท" },
+        { name: "ชลบุรี", lat: 13.3611, lng: 100.9847, val: "177,510,000 บาท" }
+    ];
+
+    hotspots.forEach(spot => {
+        L.circleMarker([spot.lat, spot.lng], {
+            radius: 7, fillColor: '#f59e0b', color: '#ffffff', weight: 1.5, opacity: 1, fillOpacity: 0.9
+        }).addTo(map).bindPopup(`
+            <div style="color:#0f172a; font-size:11px;">
+                <b style="color:#047857;">${spot.name}</b><br>ยอดอายัด: <b>${spot.val}</b>
+            </div>
+        `);
+    });
+
+    const chartCtx = document.getElementById('workloadChart').getContext('2d');
+    new Chart(chartCtx, {
+        type: 'bar',
+        data: {
+            labels: ['กองคดี 1', 'กองคดี 2', 'กองคดี 3', 'กองคดี 4', 'กองคดี 5'],
+            datasets: [{ label: 'ปริมาณคดีประมวลผล (สำนวน)', data: [120, 190, 300, 150, 80], backgroundColor: '#10b981', borderRadius: 6 }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+            scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } } }
+        }
+    });
+}
 
         window.onload = function() {
             executeAiCaseSearch();
